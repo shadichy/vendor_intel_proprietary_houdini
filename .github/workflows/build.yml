@@ -1,0 +1,77 @@
+name: Generate flashable zip
+
+on:
+  push:
+    branches:
+      - '*'
+  workflow_dispatch:
+
+env:
+  REPO: ${{ github.repository }}
+  BRANCH: ${{ github.ref_name }}
+  PAT: ${{ secrets.RELEASE_TOKEN }}
+  MODULE: native-bridge
+  MODULE_NAME: libhoudini
+  MODULE_DESCRIPTION: Android Native Bridge using Intel's proprietary libhoudini for Intel/AMD x86 CPUs
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up module
+        run: bash module.sh
+
+      - name: Build module
+        id: build_module
+        uses: Ananda-Aropa/android_module_actions@ksu_headless
+        with:
+          id: ${{ env.MODULE }}
+          name: ${{ env.MODULE_NAME }}
+          version: ${{ env.VERSION }}
+          version_code: ${{ env.VERSION_CODE }}
+          description: ${{ env.MODULE_DESCRIPTION }}
+          # update_json: https://raw.githubusercontent.com/${{ env.REPO }}/${{ env.BRANCH }}/update.json
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.MODULE }}.zip
+          path: ${{ steps.build_module.outputs.artifact_path }}
+
+  release:
+    name: Release
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Setup variables
+        run: cat VERSION >>"$GITHUB_ENV"
+
+      - name: Download artifacts
+        id: download-artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: out
+          pattern: "*"
+          merge-multiple: true
+
+      - name: List Files
+        run: ls -R ${{ steps.download-artifacts.outputs.download-path }}
+
+      - uses: "softprops/action-gh-release@v2.1.0"
+        with:
+          token: "${{ secrets.RELEASE_TOKEN }}"
+          prerelease: false
+          tag_name: "v${{ env.VERSION_CODE }}"
+          name: "Release ${{ env.VERSION }}"
+          files: |
+            ${{ steps.download-artifacts.outputs.download-path }}/*
