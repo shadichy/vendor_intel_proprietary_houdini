@@ -35,8 +35,8 @@ LINKS=(
 for link in "${LINKS[@]}"; do
 	src=$(echo "$link" | cut -d' ' -f1)
 	dst=$(echo "$link" | cut -d' ' -f2)
-	echo "mkdir -p module/$(dirname "$dst")" >>module/customize.sh
-	echo "ln -s /$src \$MODPATH/system/$dst" >>module/customize.sh
+	echo "mkdir -p \$MODPATH/$(dirname "$dst")" >>module/customize.sh
+	echo "ln -s /$src \$MODPATH/$dst" >>module/customize.sh
 done
 
 find sepolicy -name "*.te" -exec cat {} + >>module/sepolicy.rule
